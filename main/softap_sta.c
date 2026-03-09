@@ -71,6 +71,9 @@ static EventGroupHandle_t s_wifi_eg;
 #define WIFI_CONN_BIT   BIT0
 #define WIFI_FAIL_BIT   BIT1
 
+/* AP netif handle — needed to enable NAPT after STA gets an IP */
+static esp_netif_t *s_netif_ap = NULL;
+
 /* --------------------------------------------------------------------------
  * WiFi event handler
  * -------------------------------------------------------------------------- */
@@ -98,6 +101,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
             if (s_sta_state == STA_CONNECTING || s_sta_state == STA_CONNECTED) {
                 s_sta_state = STA_CONNECTING;
                 s_internet_ok = false;
+                if (s_netif_ap) esp_netif_napt_disable(s_netif_ap);
                 if (s_retry_num < MAX_STA_RETRY) {
                     s_retry_num++;
                     ESP_LOGI(TAG, "STA: retry %d/%d", s_retry_num, MAX_STA_RETRY);
@@ -120,6 +124,14 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
         s_retry_num = 0;
         s_sta_state = STA_CONNECTED;
         xEventGroupSetBits(s_wifi_eg, WIFI_CONN_BIT);
+        /* Enable NAPT now that STA has a valid IP and default route */
+        if (s_netif_ap) {
+            if (esp_netif_napt_enable(s_netif_ap) == ESP_OK) {
+                ESP_LOGI(TAG, "NAPT enabled — AP clients can reach internet");
+            } else {
+                ESP_LOGW(TAG, "NAPT enable failed");
+            }
+        }
     }
 }
 
@@ -784,7 +796,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 
     /* Configure AP */
-    esp_netif_t *netif_ap = esp_netif_create_default_wifi_ap();
+    s_netif_ap = esp_netif_create_default_wifi_ap();
     wifi_config_t ap_cfg = {
         .ap = {
             .ssid           = AP_SSID,
@@ -805,13 +817,6 @@ void app_main(void)
 
     /* Start WiFi */
     ESP_ERROR_CHECK(esp_wifi_start());
-
-    /* Enable NAPT so phones connected to the AP can reach internet via STA */
-    if (esp_netif_napt_enable(netif_ap) != ESP_OK) {
-        ESP_LOGW(TAG, "NAPT enable failed — AP clients won't have internet");
-    } else {
-        ESP_LOGI(TAG, "NAPT enabled on AP interface");
-    }
 
     ESP_LOGI(TAG, "AP  SSID: \"%s\"  Password: \"%s\"", AP_SSID, AP_PASS);
     ESP_LOGI(TAG, "Web login: %s / %s", WEB_USERNAME, WEB_PASSWORD);
