@@ -71,7 +71,6 @@ static EventGroupHandle_t s_wifi_eg;
 #define WIFI_CONN_BIT   BIT0
 #define WIFI_FAIL_BIT   BIT1
 
-
 /* --------------------------------------------------------------------------
  * WiFi event handler
  * -------------------------------------------------------------------------- */
@@ -815,9 +814,6 @@ void app_main(void)
 
     /* Internet check task */
     xTaskCreate(internet_check_task, "inet_chk", 4096, NULL, 5, NULL);
-
-	esp_netif_t *esp_netif = NULL;
-	esp_netif_napt_enable(esp_netif);
 
     /* Try saved credentials */
     char s_ssid[33] = {0}, s_pass[65] = {0};
