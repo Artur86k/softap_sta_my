@@ -784,7 +784,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 
     /* Configure AP */
-    esp_netif_create_default_wifi_ap();
+    esp_netif_t *netif_ap = esp_netif_create_default_wifi_ap();
     wifi_config_t ap_cfg = {
         .ap = {
             .ssid           = AP_SSID,
@@ -806,6 +806,13 @@ void app_main(void)
     /* Start WiFi */
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    /* Enable NAPT so phones connected to the AP can reach internet via STA */
+    if (esp_netif_napt_enable(netif_ap) != ESP_OK) {
+        ESP_LOGW(TAG, "NAPT enable failed — AP clients won't have internet");
+    } else {
+        ESP_LOGI(TAG, "NAPT enabled on AP interface");
+    }
+
     ESP_LOGI(TAG, "AP  SSID: \"%s\"  Password: \"%s\"", AP_SSID, AP_PASS);
     ESP_LOGI(TAG, "Web login: %s / %s", WEB_USERNAME, WEB_PASSWORD);
 
@@ -814,6 +821,9 @@ void app_main(void)
 
     /* Internet check task */
     xTaskCreate(internet_check_task, "inet_chk", 4096, NULL, 5, NULL);
+
+	esp_netif_t *esp_netif = NULL;
+	esp_netif_napt_enable(esp_netif);
 
     /* Try saved credentials */
     char s_ssid[33] = {0}, s_pass[65] = {0};
