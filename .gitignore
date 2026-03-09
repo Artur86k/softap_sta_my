@@ -1,0 +1,13 @@
+# ESP-IDF build output
+build/
+sdkconfig.old
+
+# IDE files
+.clang-format
+.clangd
+.cproject
+.project
+.settings/
+
+# Claude Code
+.claude/
